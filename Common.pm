@@ -2,7 +2,7 @@ package Net::EMI::Common;
 use strict;
 
 use vars qw($VERSION);
-$VERSION='1.0';
+$VERSION='1.01';
 
 ###########################################################################################################
 # Since 'constants' are actually implemented as subs,
@@ -21,15 +21,21 @@ sub new {
 }
 
 ###########################################################################################################
-# calcuate packet checksum
+# Calculate packet checksum
 sub checksum {
-	my$checksum;
-	map{$checksum+=ord}(split //,pop @_);
-	sprintf("%X",$checksum%256);
+   shift;         # Ignore $self.
+   defined($_[0])||return(0);
+
+   my$checksum=0;
+   for(split(//,shift)) {
+      $checksum+=ord;
+   }
+   # 2003-Apr-24 Rainer Thieringer: format string corrected from %X to %02X.
+   sprintf("%02X",$checksum%256);
 }
 
 ###########################################################################################################
-# calculate data length
+# Calculate data length
 sub data_len {
 	my$len=length(pop @_)+17;
 	for(1..(5-length($len))) {
@@ -39,39 +45,35 @@ sub data_len {
 }
 
 ###########################################################################################################
+# The first 'octet' in the string returned will contain the length of the remaining user data.
 sub encode_7bit {
    my($self,$msg)=@_;
-   my($bits,$ud)=('','');
-   my($octet,$foo);
+   my($bit_string,$user_data)=('','');
+   my($octet,$rest);
 
-   defined($msg)&&length($msg)||return('');
+   defined($msg)&&length($msg)||return('00');   # Zero length user data.
 
    for(split(//,$msg)) {
-      $bits.=unpack('b7',$_);
+      $bit_string.=unpack('b7',$_);
    }
 
-   while(defined($bits)&&(length($bits))) {
-      $octet=substr($bits,0,8);
-      $foo = $octet;
-      $ud.=unpack("H2",pack("b8",substr($octet.'0'x7,0,8)));
-      $bits=(length($bits)>8)?substr($bits,8):'';
+   #print("Bitstring:$bit_string\n");
+
+   while(defined($bit_string)&&(length($bit_string))) {
+      $rest=$octet=substr($bit_string,0,8);
+      $user_data.=unpack("H2",pack("b8",substr($octet.'0'x7,0,8)));
+      $bit_string=(length($bit_string)>8)?substr($bit_string,8):'';
    }
 
-   my$len;
-   if(length($foo)<5) {
-      $len =sprintf("%02X", (length($ud)-1));
-   }
-   else {
-      $len =sprintf("%02X", length($ud));
-   }
-
-   $len.uc($ud);
+   sprintf("%02X",length($rest)<5?length($user_data)-1:length($user_data)).uc($user_data);
 }
 
 ###########################################################################################################
 sub ia5_decode {
    my($self,$message)=@_;
    my($decoded,$i);
+
+   defined($message)&&length($message)||return('');
 
 	for($i=0;$i<=length($message);$i+=2) {
 		$decoded.=chr(hex(substr($message,$i,2)));
@@ -121,8 +123,7 @@ the Net::EMI::Client class and any future Net::EMI::Server classes.
 Even so, there is nothing to stop any application or other module to make use of the
 common routines found in this class.
 
-(If someone makes use of this module to support any other module,
-I'd like to hear about it.
+(If someone makes use of this module to support another public module I'd like to hear about it.
 That way I may be able to maintain backwards compatibility for those modules.)
 
 =head1 CONSTRUCTOR
@@ -167,6 +168,8 @@ and also for letting me in on the project.
 In February 2003, Jochen gave me free hands to distribute this class module
 which is primarily built upon his work.
 Without Jochens initial releases, this module would probably not have seen the light.
+
+Thanks, Rainer Thieringer, for pointing out a bug in the checksum() method.
 
 And, as everyone else I owe so much to Larry.
 For having provided Perl.

@@ -1,5 +1,5 @@
-Net/EMI/Common version 1.00
-===========================
+Net/EMI/Common
+==============
 
 This module contains a number of routines that are used by an EMI client class and
 that will most likely be useful if someone choses to implement an EMI server class or two.
